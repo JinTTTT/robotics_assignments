@@ -1,2 +1,5 @@
 # ignore /tutorial/build
 /tutorialPlan/build
+
+# ignore .DS_Store
+.DS_Store
