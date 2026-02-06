@@ -13,7 +13,8 @@ YourPlanner::~YourPlanner()
 ::std::string
 YourPlanner::getName() const
 {
-  return "Your Planner";
+  //return "Your Planner";
+  return "RrtConConBase_reversed";
 }
 
 void
