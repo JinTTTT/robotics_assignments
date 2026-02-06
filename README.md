@@ -27,7 +27,8 @@ which means: date, time, solved, planner name, vertices, collision queries, free
 
 ### Evaluation
 we did 20 runs for each planner, 10 runs from start to goal, 10 runs from goal to start.
-for evaluation, we need 4 measurements: avgT, stdT, avgNodes, avgQueries
+To reverse the start and goal, we changed code in TutorialPlanSystem.cpp, line 36 and line 39, swap this->goal and this->start.
+For evaluation, we need 4 measurements: avgT, stdT, avgNodes, avgQueries
 
 avgT = average running time
 stdT = standard deviation of running time
@@ -38,6 +39,9 @@ avgQueries = average number of collision queries
 For Baseline: RrtConConBase
 | Planner | avgT | stdT | avgNodes | avgQueries |
 |---------|------|------|----------|------------|
-| RrtConConBase | 26295.2 | 1000 | 14906 | 726146 |
-| RrtConConBase_reversed | 26295.2 | 1000 | 14906 | 726146 |
+| RrtConConBase | 18.70 | 6.79 | 10726 | 542079 |
+| RrtConConBase_reversed | 19.28 | 7.77 | 11048 | 557666 |
 
+- Both direction perform roughly same for RRTConConBase
+- High variance, planner not stable
+- Many nodes, many queries
