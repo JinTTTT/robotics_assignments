@@ -26,6 +26,9 @@ namespace rl
         protected:
             ::std::uniform_real_distribution< ::rl::math::Real>::result_type rand();
 
+            // Add Gaussian 
+            ::rl::math::Real randGaussian(::rl::math::Real mean, ::rl::math::Real stddev);
+
             ::std::uniform_real_distribution< ::rl::math::Real> randDistribution;
 
             ::std::mt19937 randEngine;
