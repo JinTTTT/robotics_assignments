@@ -13,8 +13,7 @@ YourPlanner::~YourPlanner()
 ::std::string
 YourPlanner::getName() const
 {
-  //return "Your Planner";
-  return "RrtConConBase_reversed";
+  return "Your Planner";
 }
 
 void
@@ -41,7 +40,7 @@ YourPlanner::extend(Tree& tree, const Neighbor& nearest, const ::rl::math::Vecto
 bool
 YourPlanner::solve()
 {
-  // default implementation is in RrtConConBase.cpp
+  //your modifications here
   return RrtConConBase::solve();
 }
 

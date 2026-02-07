@@ -44,6 +44,10 @@ namespace rl
                 for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                 {
                     ::rl::math::Real range = maximum(i) - minimum(i);
+                    // here sigma need to be tuned:
+                    // smaller -> more near to obstacle, better for narrow space
+                    // larger -> more far from obstacle, better for wide spaces
+                    // 0.1 * 180 = 18 degree, maybe too large, need to tune
                     ::rl::math::Real sigma = 0.1 * range;
                     q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
                 }

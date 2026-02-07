@@ -7,11 +7,10 @@ namespace rl
     namespace plan
     {
         YourSampler::YourSampler() :
-            UniformSampler(),
-            sigma(nullptr),
-            gaussDistribution(0, 1),
-            gaussEngine(::std::random_device()()),
-            ratio(static_cast< ::rl::math::Real>(5) / static_cast< ::rl::math::Real>(6))
+            Sampler(),
+            randDistribution(0, 1),
+            randEngine(::std::random_device()()),
+            gaussDistribution(0, 1)
         {
         }
 
@@ -19,60 +18,108 @@ namespace rl
         {
         }
 
-        ::std::normal_distribution< ::rl::math::Real>::result_type
-        YourSampler::gauss()
-        {
-            return this->gaussDistribution(this->gaussEngine);
-        }
 
         ::rl::math::Vector
-        YourSampler::generateCollisionFree()
+        YourSampler::generate()
         {
-            if (this->rand() > this->ratio)
+            while (true)
             {
-                return this->generate();
-            }
-            else
-            {
-                ::rl::math::Vector gauss(this->model->getDof());
-                ::rl::math::Vector pos(this->model->getDof());
-                
-                while (true)
+                // Step 1: generate q1 uniformly, q1 should be in collision
+                ::rl::math::Vector q1(this->model->getDof());
+                ::rl::math::Vector maximum(this->model->getMaximum());
+                ::rl::math::Vector minimum(this->model->getMinimum());
+
+                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                 {
-                    ::rl::math::Vector q1 = this->generate();
-                    this->model->setPosition(q1);
-                    this->model->updateFrames();
-
-                    if (this->model->isColliding())
-                    {
-                        for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                        {
-                            gauss(i) = this->gauss();
-                        }
-
-                        ::rl::math::Vector q2 = this->model->generatePositionGaussian(gauss, q1, *this->sigma);
-
-                        if (this->model->isColliding())
-                        {
-                            this->model->interpolate(q1, q2, static_cast< ::rl::math::Real>(0.5), pos);
-                            this->model->setPosition(pos);
-                            this->model->updateFrames();
-                
-                            if (!this->model->isColliding())
-                            {
-                                return pos;
-                            }
-                        }
-                    }
+                    q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
                 }
+
+                // check if q1 in collision
+                this->model->setPosition(q1);
+                this->model->updateFrames();
+
+                if (!this->model->isColliding())
+                {
+                    continue; // we need q1 to be in collision
+                }
+
+                // Step 2: generate q2 near q1 using gaussian, q2 should also in collision
+                ::rl::math::Vector q2(this->model->getDof());
+                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                {
+                    ::rl::math::Real range = maximum(i) - minimum(i);
+                    // here we set sigma 0.1 for all joints, but need to tune later
+                    ::rl::math::Real sigma = 0.1 * range;
+                    q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
+                }
+                this->model->clip(q2);
+
+                // check if q2 in collision
+                this->model->setPosition(q2);
+                this->model->updateFrames();
+
+                if (!this->model->isColliding())
+                {
+                    continue;
+                }
+
+                // Step 3: cal mid point of q1 and q2, midPoint should be free, then return
+                ::rl::math::Vector midPoint(this->model->getDof());
+                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                {
+                    midPoint(i) = (q1(i) + q2(i)) / 2;
+                }
+                
+                this->model->setPosition(midPoint);
+                this->model->updateFrames();
+
+                if (!this->model->isColliding())
+                {
+                    return midPoint;
+                }
+
             }
+        }
+        
+        // ::rl::math::Vector
+        // YourSampler::generate()
+        // {
+        //     // Our template code performs uniform sampling.
+        //     // You are welcome to change any or all parts of the sampler.
+        //     // BUT PLEASE MAKE SURE YOU CONFORM TO JOINT LIMITS,
+        //     // AS SPECIFIED BY THE ROBOT MODEL!
+
+        //     ::rl::math::Vector sampleq(this->model->getDof());
+
+        //     ::rl::math::Vector maximum(this->model->getMaximum());
+        //     ::rl::math::Vector minimum(this->model->getMinimum());
+
+        //     for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+        //     {
+        //         sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+        //     }
+
+        //     // It is a good practice to generate samples in the
+        //     // the allowed configuration space as done above.
+        //     // Alternatively, to make sure generated joint 
+        //     // configuration values are clipped to the robot model's 
+        //     // joint limits, you may use the clip() function like this: 
+        //     // this->model->clip(sampleq);
+
+        //     return sampleq;
+        // }
+
+        ::std::uniform_real_distribution< ::rl::math::Real>::result_type
+        YourSampler::rand()
+        {
+            return this->randDistribution(this->randEngine);
         }
 
         void
         YourSampler::seed(const ::std::mt19937::result_type& value)
         {
-            this->gaussEngine.seed(value);
             this->randEngine.seed(value);
         }
     }
 }
+
