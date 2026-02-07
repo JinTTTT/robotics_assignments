@@ -4,6 +4,7 @@
 #include <rl/plan/SimpleModel.h>
 #include "YourSampler.h"
 #include <iostream>
+
 namespace rl
 {
     namespace plan
@@ -11,7 +12,11 @@ namespace rl
         YourSampler::YourSampler() :
             Sampler(),
             randDistribution(0, 1),
-            randEngine(::std::random_device()())
+            randEngine(::std::random_device()()),
+            gaussDistribution(0, 1),
+            gaussEngine(::std::random_device()()),
+            sigma(nullptr),
+            bridgeTestRatio(static_cast<::rl::math::Real>(5) / static_cast<::rl::math::Real>(6))
         {
         }
 
@@ -19,124 +24,93 @@ namespace rl
         {
         }
 
-
         ::rl::math::Vector
         YourSampler::generate()
         {
-            // EXACT OFFICIAL RL LIBRARY IMPLEMENTATION
-            // From: https://github.com/roboticslibrary/rl/blob/master/src/rl/plan/BridgeSampler.cpp
-            
-            const ::rl::math::Real ratio = static_cast<::rl::math::Real>(5) / static_cast<::rl::math::Real>(6);
-            const ::rl::math::Real sigma = 0.1;
-            
-            // Official check: if rand() > ratio (5/6), do bridge test
-            if (this->rand() > ratio)
+            if (this->rand() <= this->bridgeTestRatio)
             {
-                // BRIDGE TEST - Exact official implementation
-                ::rl::math::Vector q(this->model->getDof());
-                ::rl::math::Vector gauss(this->model->getDof());
+                return this->generateBridgeTest();
+            }
+            else
+            {
+                return this->generateUniform();
+            }
+        }
+
+        ::rl::math::Vector
+        YourSampler::generateUniform()
+        {
+            ::rl::math::Vector sampleq(this->model->getDof());
+            ::rl::math::Vector maximum(this->model->getMaximum());
+            ::rl::math::Vector minimum(this->model->getMinimum());
+
+            for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+            {
+                sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+            }
+
+            return sampleq;
+        }
+
+        ::rl::math::Vector
+        YourSampler::generateBridgeTest()
+        {
+            while (true)
+            {
+                ::rl::math::Vector q1 = this->generateUniform();
                 
-                while (true)  // Official uses infinite loop
+                this->model->setPosition(q1);
+                this->model->updateFrames();
+                
+                if (this->model->isColliding())
                 {
-                    // Sample q2 (first collision point)
-                    ::rl::math::Vector q2(this->model->getDof());
-                    
-                    // Generate uniform sample
-                    ::rl::math::Vector maximum(this->model->getMaximum());
-                    ::rl::math::Vector minimum(this->model->getMinimum());
-                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                    {
-                        q2(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-                    }
+                    ::rl::math::Vector q2 = this->generateGaussianNear(q1);
                     
                     this->model->setPosition(q2);
                     this->model->updateFrames();
                     
                     if (this->model->isColliding())
                     {
-                        // Generate standard Gaussian samples N(0,1)
-                        for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                        {
-                            gauss(i) = this->randGaussian(0.0, 1.0);
-                        }
+                        ::rl::math::Vector midpoint(this->model->getDof());
+                        this->model->interpolate(q1, q2, 0.5, midpoint);
                         
-                        // Sample q3 (second collision point) using Gaussian around q2
-                        ::rl::math::Vector q3(this->model->getDof());
-                        for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                        {
-                            ::rl::math::Real jointRange = maximum(i) - minimum(i);
-                            q3(i) = q2(i) + gauss(i) * sigma * jointRange;
-                            
-                            // Clip to limits
-                            if (q3(i) < minimum(i)) q3(i) = minimum(i);
-                            if (q3(i) > maximum(i)) q3(i) = maximum(i);
-                        }
-                        
-                        this->model->setPosition(q3);
+                        this->model->setPosition(midpoint);
                         this->model->updateFrames();
                         
-                        if (this->model->isColliding())
+                        if (!this->model->isColliding())
                         {
-                            // Both in collision, compute midpoint
-                            this->model->interpolate(q2, q3, static_cast<::rl::math::Real>(0.5), q);
-                            
-                            this->model->setPosition(q);
-                            this->model->updateFrames();
-                            
-                            if (!this->model->isColliding())
-                            {
-                                // Success! Midpoint is free
-                                std::cout << "✓ Bridge sampling SUCCESS" << std::endl;
-                                return q;
-                            }
+                            return midpoint;
                         }
                     }
                 }
             }
-            else
-            {
-                // UNIFORM SAMPLING - Official fallback
-                ::rl::math::Vector sampleq(this->model->getDof());
-                ::rl::math::Vector maximum(this->model->getMaximum());
-                ::rl::math::Vector minimum(this->model->getMinimum());
-                
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-                }
-                
-                return sampleq;
-            }
         }
 
-
-        // ::rl::math::Vector
-        // YourSampler::generate()
-        // {
-        //     // Our template code performs uniform sampling.
-        //     // You are welcome to change any or all parts of the sampler.
-        //     // BUT PLEASE MAKE SURE YOU CONFORM TO JOINT LIMITS,
-        //     // AS SPECIFIED BY THE ROBOT MODEL!
-
-        //     ::rl::math::Vector sampleq(this->model->getDof());
-
-        //     ::rl::math::Vector maximum(this->model->getMaximum());
-        //     ::rl::math::Vector minimum(this->model->getMinimum());
-
-        //     for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-        //     {
-        //         sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-        //     }
-
-        //     // It is a good practice to generate samples in the
-        //     // the allowed configuration space as done above.
-        //     // Alternatively, to make sure generated joint 
-        //     // configuration values are clipped to the robot model's 
-        //     // joint limits, you may use the clip() function like this: 
-        //     // this->model->clip(sampleq);
-
-        //     return sampleq;
-        // }
+        ::rl::math::Vector
+        YourSampler::generateGaussianNear(const ::rl::math::Vector& center)
+        {
+            ::rl::math::Vector result(this->model->getDof());
+            
+            for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+            {
+                ::rl::math::Real gaussianNoise = this->gauss();
+                
+                if (this->sigma != nullptr)
+                {
+                    result(i) = center(i) + gaussianNoise * (*this->sigma)(i);
+                }
+                else
+                {
+                    ::rl::math::Real range = this->model->getMaximum()(i) - this->model->getMinimum()(i);
+                    ::rl::math::Real defaultSigma = 0.1 * range;
+                    result(i) = center(i) + gaussianNoise * defaultSigma;
+                }
+            }
+            
+            this->model->clip(result);
+            
+            return result;
+        }
 
         ::std::uniform_real_distribution< ::rl::math::Real>::result_type
         YourSampler::rand()
@@ -144,18 +118,43 @@ namespace rl
             return this->randDistribution(this->randEngine);
         }
 
+        ::std::normal_distribution< ::rl::math::Real>::result_type
+        YourSampler::gauss()
+        {
+            return this->gaussDistribution(this->gaussEngine);
+        }
+
         void
         YourSampler::seed(const ::std::mt19937::result_type& value)
         {
             this->randEngine.seed(value);
+            this->gaussEngine.seed(value);
+        }
+
+        void
+        YourSampler::setSigma(::rl::math::Vector* sigma)
+        {
+            this->sigma = sigma;
+        }
+
+        ::rl::math::Vector*
+        YourSampler::getSigma() const
+        {
+            return this->sigma;
+        }
+
+        void
+        YourSampler::setBridgeTestRatio(const ::rl::math::Real& ratio)
+        {
+            this->bridgeTestRatio = ratio;
         }
 
         ::rl::math::Real
-        YourSampler::randGaussian(::rl::math::Real mean, ::rl::math::Real stddev)
+        YourSampler::getBridgeTestRatio() const
         {
-            ::std::normal_distribution<::rl::math::Real> normalDist(mean, stddev);
-            return normalDist(this->randEngine);
+            return this->bridgeTestRatio;
         }
+
     }
 }
 
