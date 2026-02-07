@@ -23,68 +23,67 @@ namespace rl
         ::rl::math::Vector
         YourSampler::generate()
         {
+            const ::rl::math::Real bridgeRatio = 1.0 / 6.0;
             const ::rl::math::Real sigma = 0.1;
-            const int maxAttempts = 50;
 
             ::rl::math::Vector maximum(this->model->getMaximum());
             ::rl::math::Vector minimum(this->model->getMinimum());
 
-            for (int attempt = 0; attempt < maxAttempts; ++attempt)
+            if (this->rand() < bridgeRatio)
             {
-                ::rl::math::Vector q1(this->model->getDof());
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                while (true)
                 {
-                    q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-                }
-
-                this->model->setPosition(q1);
-                this->model->updateFrames();
-
-                if(!this->model->isColliding())
-                {
-                    continue;
-                }
-
-                ::rl::math::Vector q2(this->model->getDof());
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    ::rl::math::Real jointRange = maximum(i) - minimum(i);
-                    q2(i) = this->randGaussian(q1(i), sigma * jointRange);
-
-                    if(q2(i) < minimum(i))
+                    ::rl::math::Vector q1(this->model->getDof());
+                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                     {
-                        q2(i) = minimum(i);
+                        q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
                     }
-                    if (q2(i) > maximum(i))
+
+                    this->model->setPosition(q1);
+                    this->model->updateFrames();
+
+                    if(!this->model->isColliding())
                     {
-                        q2(i) = maximum(i);
+                        continue;
                     }
-                }
 
-                this->model->setPosition(q2);
-                this->model->updateFrames();
-                if(!this->model->isColliding())
-                {
-                    continue;
-                }
+                    ::rl::math::Vector q2(this->model->getDof());
+                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                    {
+                        
+                        ::rl::math::Real jointRange = maximum(i) - minimum(i);
+                        q2(i) = this->randGaussian(q1(i), sigma * jointRange);
 
-                ::rl::math::Vector midPoint(this->model->getDof());
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    midPoint(i) = (q1(i) + q2(i)) / 2.0;
-                }
+                        q2(i) = (q2(i) < minimum(i)) ? minimum(i) : q2(i);
+                        q2(i) = (q2(i) > maximum(i)) ? maximum(i) : q2(i);
+                        
+                    }
 
-                this->model->setPosition(midPoint);
-                this->model->updateFrames();
-                if(!this->model->isColliding())
-                {
-                    std::cout << "Found valid bridge sample after " << (attempt+1) << " attempts" << std::endl;
-                    return midPoint;
-                }
+                    this->model->setPosition(q2);
+                    this->model->updateFrames();
 
+                    if(!this->model->isColliding())
+                    {
+                        continue;
+                    }
+
+                    ::rl::math::Vector midPoint(this->model->getDof());
+                    this->model->interpolate(q1, q2, 0.5, midPoint)
+
+                    this->model->setPosition(midPoint);
+                    this->model->updateFrames();
+                    
+                    if(!this->model->isColliding())
+                    {
+                        std::cout << "Found valid bridge sample after " << (attempt+1) << " attempts" << std::endl;
+                        return midPoint;
+                    }
+
+                }
             }
+            
 
-            // fallback to uniform sampling
+            // otherwise uniform sampling
             ::rl::math::Vector uniSample(this->model->getDof());
             for (::std::size_t i = 0; i < this->model->getDof(); ++i)
             {
