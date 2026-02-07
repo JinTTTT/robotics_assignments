@@ -10,7 +10,8 @@ namespace rl
             Sampler(),
             randDistribution(0, 1),
             randEngine(::std::random_device()()),
-            gaussDistribution(0, 1)
+            gaussDistribution(0, 1),
+            bridgeRatio(1.0 / 5.0)  // rand < 1/5 use bridge, otherwise uniform
         {
         }
 
@@ -22,63 +23,80 @@ namespace rl
         ::rl::math::Vector
         YourSampler::generate()
         {
-            while (true)
+            // Do uniform sampling (4 / 5 of the time)
+            if (this->rand() > this->bridgeRatio)
             {
-                // Step 1: generate q1 uniformly, q1 should be in collision
-                ::rl::math::Vector q1(this->model->getDof());
+                ::rl::math::Vector qUniform(this->model->getDof());
                 ::rl::math::Vector maximum(this->model->getMaximum());
                 ::rl::math::Vector minimum(this->model->getMinimum());
 
                 for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                 {
-                    q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+                    qUniform(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
                 }
-
-                // check if q1 in collision
-                this->model->setPosition(q1);
-                this->model->updateFrames();
-
-                if (!this->model->isColliding())
-                {
-                    continue; // we need q1 to be in collision
-                }
-
-                // Step 2: generate q2 near q1 using gaussian, q2 should also in collision
-                ::rl::math::Vector q2(this->model->getDof());
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    ::rl::math::Real range = maximum(i) - minimum(i);
-                    // here we set sigma 0.1 for all joints, but need to tune later
-                    ::rl::math::Real sigma = 0.1 * range;
-                    q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
-                }
-                this->model->clip(q2);
-
-                // check if q2 in collision
-                this->model->setPosition(q2);
-                this->model->updateFrames();
-
-                if (!this->model->isColliding())
-                {
-                    continue;
-                }
-
-                // Step 3: cal mid point of q1 and q2, midPoint should be free, then return
-                ::rl::math::Vector midPoint(this->model->getDof());
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    midPoint(i) = (q1(i) + q2(i)) / 2;
-                }
+                return qUniform;
                 
-                this->model->setPosition(midPoint);
-                this->model->updateFrames();
-
-                if (!this->model->isColliding())
-                {
-                    return midPoint;
-                }
-
             }
+            else 
+            {
+                // Do bridge sampling (1 / 5 of the time
+                while (true)
+                {
+                    // Step 1: generate q1 uniformly, q1 should be in collision
+                    ::rl::math::Vector q1(this->model->getDof());
+                    ::rl::math::Vector maximum(this->model->getMaximum());
+                    ::rl::math::Vector minimum(this->model->getMinimum());
+
+                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                    {
+                        q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+                    }
+
+                    // check if q1 in collision
+                    this->model->setPosition(q1);
+                    this->model->updateFrames();
+
+                    if (!this->model->isColliding())
+                    {
+                        continue; // we need q1 to be in collision
+                    }
+
+                    // Step 2: generate q2 near q1 using gaussian, q2 should also in collision
+                    ::rl::math::Vector q2(this->model->getDof());
+                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                    {
+                        ::rl::math::Real range = maximum(i) - minimum(i);
+                        // here we set sigma 0.1 for all joints, but need to tune later
+                        ::rl::math::Real sigma = 0.1 * range;
+                        q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
+                    }
+                    this->model->clip(q2);
+
+                    // check if q2 in collision
+                    this->model->setPosition(q2);
+                    this->model->updateFrames();
+
+                    if (!this->model->isColliding())
+                    {
+                        continue;
+                    }
+
+                    // Step 3: cal mid point of q1 and q2, midPoint should be free, then return
+                    ::rl::math::Vector midPoint(this->model->getDof());
+                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                    {
+                        midPoint(i) = (q1(i) + q2(i)) / 2;
+                    }
+                    
+                    this->model->setPosition(midPoint);
+                    this->model->updateFrames();
+
+                    if (!this->model->isColliding())
+                    {
+                        return midPoint;
+                    }                   
+                }
+            }       
         }
         
         // ::rl::math::Vector

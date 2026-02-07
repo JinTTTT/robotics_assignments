@@ -32,6 +32,8 @@ namespace rl
 
             // add gaussian distribution
             ::std::normal_distribution< ::rl::math::Real> gaussDistribution;
+            // add ratio
+            ::rl::math::Real bridgeRatio;
 
         private:
 
