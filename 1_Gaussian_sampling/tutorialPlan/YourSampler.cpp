@@ -21,9 +21,13 @@ namespace rl
         ::rl::math::Vector
         YourSampler::generate()
         {
-            while (true)
+            int max_attempts = 100;
+            int attempt = 0;
+
+            if (attempt < max_attempts)
             {   
-            
+                attempt++;
+                
                 // Step 1: generate 1st sample uniformly
                 ::rl::math::Vector q1(this->model->getDof());
                 ::rl::math::Vector maximum(this->model->getMaximum());
@@ -67,6 +71,23 @@ namespace rl
                 // If both are in collision or free, try again
                 
             }
+            else
+            {
+                // use uniform sampling
+                ::rl::math::Vector sampleq(this->model->getDof());
+                ::rl::math::Vector maximum(this->model->getMaximum());
+                ::rl::math::Vector minimum(this->model->getMinimum());
+
+                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                {
+                    sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+                }
+                this->model->clip(sampleq);
+                return sampleq;
+            }
+            
+
+            
         }
         // ::rl::math::Vector
         // YourSampler::generate()
