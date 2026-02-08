@@ -43,27 +43,10 @@ namespace rl
                 ::rl::math::Vector q2(this->model->getDof());
                 for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                 {
-                    ::rl::math::Real range = maximum(i) - minimum(i);
-                    
-                    // Adaptive per-joint sigma based on each joint's range (range is in RADIANS)
                     // Different joints have different ranges (5.59, 4.71, 4.71, 4.89, 3.49, 9.28 rad)
-                    
-                    // Strategy 1: Standard approach (1% of range) - RECOMMENDED START
-                    // Gives ~2-5 degrees per joint, good for narrow passages
-                    ::rl::math::Real sigma = 0.01 * range;  
-                    
-                    // Strategy 2: More aggressive (2% of range) - UNCOMMENT TO TRY
-                    // ::rl::math::Real sigma = 0.02 * range;  
-                    
-                    // Strategy 3: Very conservative for tight spaces (0.5%) - UNCOMMENT TO TRY
-                    // ::rl::math::Real sigma = 0.005 * range;  
-                    
-                    // Strategy 4: Adaptive based on joint type - UNCOMMENT TO TRY
-                    // Base joints (0-2) affect global position more, wrist joints (3-5) are more local
-                    // ::rl::math::Real factor = (i < 3) ? 0.008 : 0.015;
-                    // ::rl::math::Real sigma = factor * range;
-                    
+                    ::rl::math::Real sigma = 3.0;   
                     q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
+                  
                 }
                 this->model->clip(q2);
 
