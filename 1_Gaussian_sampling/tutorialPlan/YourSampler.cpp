@@ -24,7 +24,7 @@ namespace rl
             int max_attempts = 100;
             int attempt = 0;
 
-            if (attempt < max_attempts)
+            while (attempt < max_attempts)  // FIX: Changed from 'if' to 'while'
             {   
                 attempt++;
                 
@@ -38,25 +38,61 @@ namespace rl
                     q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
                 }
 
-                // Step 2: check if q1 in collision
-                this->model->setPosition(q1);
-                this->model->updateFrames();
+                // Step 2: check if q1 in collision (with safety check)
+                try {
+                    this->model->setPosition(q1);
+                    this->model->updateFrames();
+                } catch (...) {
+                    continue;  // Skip invalid configuration
+                }
                 bool q1_collides = this->model->isColliding();
 
                 // Step 3: generate 2nd sample Gaussian near q1
                 ::rl::math::Vector q2(this->model->getDof());
                 for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                 {
+                    ::rl::math::Real range = maximum(i) - minimum(i);
+                    
+                    // FIX: Use adaptive sigma based on joint range
                     // Different joints have different ranges (5.59, 4.71, 4.71, 4.89, 3.49, 9.28 rad)
-                    ::rl::math::Real sigma = 3.0;   
+                    ::rl::math::Real sigma = 0.01 * range;  // 1% of range (~2-5 degrees)
+                    
+                    // Alternative options to try:
+                    // ::rl::math::Real sigma = 0.02 * range;  // 2% of range (~4-10 degrees)
+                    // ::rl::math::Real sigma = 0.005 * range; // 0.5% of range (~1-3 degrees)
+                    
+                    // SAFETY: Cap sigma to prevent extreme values
+                    sigma = ::std::min(sigma, 0.1 * range);
+                    
                     q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
-                  
                 }
+                
+                // SAFETY: Clip to joint limits
                 this->model->clip(q2);
+                
+                // SAFETY: Check for NaN/Inf values
+                bool valid = true;
+                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
+                {
+                    if (::std::isnan(q2(i)) || ::std::isinf(q2(i)))
+                    {
+                        valid = false;
+                        break;
+                    }
+                }
+                
+                if (!valid)
+                {
+                    continue;  // Skip invalid configuration
+                }
 
-                // Step 4: check if q2 in collision
-                this->model->setPosition(q2);
-                this->model->updateFrames();
+                // Step 4: check if q2 in collision (with safety check)
+                try {
+                    this->model->setPosition(q2);
+                    this->model->updateFrames();
+                } catch (...) {
+                    continue;  // Skip invalid configuration
+                }
                 bool q2_collides = this->model->isColliding();
 
                 //Step 5: return the one is free and another is in collision
@@ -68,26 +104,20 @@ namespace rl
                 {
                     return q1;
                 }
-                // If both are in collision or free, try again
-                
+                // If both are in collision or free, try again (loop continues)
             }
-            else
+            
+            // Fallback: if max_attempts reached, use uniform sampling
+            ::rl::math::Vector sampleq(this->model->getDof());
+            ::rl::math::Vector maximum(this->model->getMaximum());
+            ::rl::math::Vector minimum(this->model->getMinimum());
+
+            for (::std::size_t i = 0; i < this->model->getDof(); ++i)
             {
-                // use uniform sampling
-                ::rl::math::Vector sampleq(this->model->getDof());
-                ::rl::math::Vector maximum(this->model->getMaximum());
-                ::rl::math::Vector minimum(this->model->getMinimum());
-
-                for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                {
-                    sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-                }
-                this->model->clip(sampleq);
-                return sampleq;
+                sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
             }
-            
-
-            
+            this->model->clip(sampleq);
+            return sampleq;
         }
         // ::rl::math::Vector
         // YourSampler::generate()
