@@ -1,5 +1,8 @@
-# ignore /tutorial/build
-/tutorialPlan/build
+
+# ignore build folder for Gaussian sampling tutorial
+0_original_file/tutorialPlan/build/
+1_gaussian_sampling/tutorialPlan/build/
+
 
 # ignore .DS_Store
 .DS_Store

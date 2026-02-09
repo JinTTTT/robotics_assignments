@@ -33,10 +33,10 @@ TutorialPlanSystem::TutorialPlanSystem()
   this->q.resize(kinematics->getDof());
 
   //  Start:
-  this->start <<  0,0,90 * rl::math::DEG2RAD,0,0,0;
+  this->goal <<  0,0,90 * rl::math::DEG2RAD,0,0,0;
 
   //  Goal:
-  this->goal <<  -98 * rl::math::DEG2RAD,
+  this->start <<  -98 * rl::math::DEG2RAD,
       7  * rl::math::DEG2RAD,
       44 * rl::math::DEG2RAD,
       0  * rl::math::DEG2RAD,
