@@ -31,8 +31,8 @@ YourPlanner::connect(Tree& tree, const Neighbor& nearest, const ::rl::math::Vect
   ::rl::math::Real step = distance;
 
   // Define step sizes
-  ::rl::math::Real largeDelta = this->delta;
-  ::rl::math::Real smallDelta = this->delta * 0.1f; // 10% step size
+  ::rl::math::Real largeDelta = this->delta * 5.0f;
+  ::rl::math::Real smallDelta = this->delta * 0.2f; // 10% step size
 
   bool reached = false;
 
@@ -46,7 +46,7 @@ YourPlanner::connect(Tree& tree, const Neighbor& nearest, const ::rl::math::Vect
     // FIX: Dereference 'last' (*last)
     distance = this->model->distance(*last, chosen);
 
-    if (distance <= this->model->epsilon)
+    if (distance <= this->epsilon)
     {
       reached = true;
       break;
@@ -71,7 +71,7 @@ YourPlanner::connect(Tree& tree, const Neighbor& nearest, const ::rl::math::Vect
       step = (::std::min)(step, smallDelta);
 
       // If step is too tiny, we are just stuck.
-      if (step <= this->model->epsilon)
+      if (step <= this->epsilon)
       {
         break;
       }
@@ -97,7 +97,7 @@ YourPlanner::connect(Tree& tree, const Neighbor& nearest, const ::rl::math::Vect
   // --- ADD VERTEX LOGIC (Moved OUTSIDE the loop) ---
   
   // Only add a node if we actually moved away from the start
-  if (this->model->distance(*tree[nearest.first].q, *last) > this->model->epsilon)
+  if (this->model->distance(*tree[nearest.first].q, *last) > this->epsilon)
   {
     Vertex connected = this->addVertex(tree, last);
     this->addEdge(nearest.first, connected, tree);
