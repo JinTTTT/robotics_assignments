@@ -1,6 +1,8 @@
 #include "YourPlanner.h"
 #include "RrtConConBase.h"
 #include <rl/plan/SimpleModel.h>
+#include <iostream>
+#include <cstdint>
 
 YourPlanner::YourPlanner() :
   RrtConConBase()
@@ -33,6 +35,10 @@ YourPlanner::connect(Tree& tree, const Neighbor& nearest, const ::rl::math::Vect
   {
     tree[nearest.first].failureCount++;
   }
+  else
+  {
+    tree[nearest.first].failureCount = 0;
+  }
   
   return connected;
  
@@ -58,10 +64,13 @@ YourPlanner::nearest(const Tree& tree, const ::rl::math::Vector& chosen)
 {
   Neighbor p(Vertex(), (::std::numeric_limits< ::rl::math::Real >::max)());
   
+  //std::int32_t failedNodes = 0;
+  
   for (VertexIteratorPair i = ::boost::vertices(tree); i.first != i.second; ++i.first)
   {
-    if (tree[*i.first].failureCount > 10)
+    if (tree[*i.first].failureCount > 20)
     {
+      //failedNodes++;
       continue;
     }
 
@@ -75,6 +84,8 @@ YourPlanner::nearest(const Tree& tree, const ::rl::math::Vector& chosen)
   }
 
   p.second = this->model->inverseOfTransformedDistance(p.second);
+
+  //std::cout << "Failed nodes: " << failedNodes << std::endl;
 
   return p;
 }
