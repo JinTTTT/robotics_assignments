@@ -11,7 +11,7 @@ namespace rl
             randDistribution(0, 1),
             randEngine(::std::random_device()()),
             gaussDistribution(0, 1),
-            bridgeRatio(1.0 / 5.0)  // rand < 1/5 use bridge, otherwise uniform
+            bridgeRatio(1.0 / 6.0)  // rand < 1/6 use bridge, otherwise uniform
         {
         }
 
@@ -43,6 +43,9 @@ namespace rl
                 while (true)
                 {
                     // Step 1: generate q1 uniformly, q1 should be in collision
+                    // prepare gaussian and sigma
+                    ::rl::math::Vector gaussian(this->model->getDof());
+                    ::rl::math::Vector sigma(this->model->getDof());
                     ::rl::math::Vector q1(this->model->getDof());
                     ::rl::math::Vector maximum(this->model->getMaximum());
                     ::rl::math::Vector minimum(this->model->getMinimum());
@@ -50,6 +53,8 @@ namespace rl
                     for (::std::size_t i = 0; i < this->model->getDof(); ++i)
                     {
                         q1(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
+                        gaussian(i) = this->gaussDistribution(this->randEngine);
+                        sigma(i) = 2.0;
                     }
 
                     // check if q1 in collision
@@ -62,14 +67,7 @@ namespace rl
                     }
 
                     // Step 2: generate q2 near q1 using gaussian, q2 should also in collision
-                    ::rl::math::Vector q2(this->model->getDof());
-                    for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-                    {
-                        ::rl::math::Real range = maximum(i) - minimum(i);
-                        // here we set sigma 0.1 for all joints, but need to tune later
-                        ::rl::math::Real sigma = 0.1 * range;
-                        q2(i) = q1(i) + this->gaussDistribution(this->randEngine) * sigma;
-                    }
+                    ::rl::math::Vector q2 = this->model->generatePositionGaussian(gaussian, q1, sigma);
                     this->model->clip(q2);
 
                     // check if q2 in collision
@@ -98,34 +96,6 @@ namespace rl
                 }
             }       
         }
-        
-        // ::rl::math::Vector
-        // YourSampler::generate()
-        // {
-        //     // Our template code performs uniform sampling.
-        //     // You are welcome to change any or all parts of the sampler.
-        //     // BUT PLEASE MAKE SURE YOU CONFORM TO JOINT LIMITS,
-        //     // AS SPECIFIED BY THE ROBOT MODEL!
-
-        //     ::rl::math::Vector sampleq(this->model->getDof());
-
-        //     ::rl::math::Vector maximum(this->model->getMaximum());
-        //     ::rl::math::Vector minimum(this->model->getMinimum());
-
-        //     for (::std::size_t i = 0; i < this->model->getDof(); ++i)
-        //     {
-        //         sampleq(i) = minimum(i) + this->rand() * (maximum(i) - minimum(i));
-        //     }
-
-        //     // It is a good practice to generate samples in the
-        //     // the allowed configuration space as done above.
-        //     // Alternatively, to make sure generated joint 
-        //     // configuration values are clipped to the robot model's 
-        //     // joint limits, you may use the clip() function like this: 
-        //     // this->model->clip(sampleq);
-
-        //     return sampleq;
-        // }
 
         ::std::uniform_real_distribution< ::rl::math::Real>::result_type
         YourSampler::rand()
